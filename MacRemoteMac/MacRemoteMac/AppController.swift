@@ -75,6 +75,7 @@ final class AppController: ObservableObject {
         if case .media(let key) = msg {
             if key == "rewind10"  { nowPlaying.seekByOffset(-10); return }
             if key == "forward15" { nowPlaying.seekByOffset(15);  return }
+            if key == "play"      { nowPlaying.togglePlayPause(); return }
         }
         injector.handle(msg)
     }

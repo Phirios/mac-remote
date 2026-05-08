@@ -17,6 +17,8 @@ public enum MRMessage: Codable, Equatable {
     case text(String)
     case media(key: String)
     case nowPlaying(title: String, artist: String, duration: Double, elapsed: Double, playing: Bool)
+    case selectSource(player: String)
+    case availableSources([String])
 
     public enum MouseButton: String, Codable {
         case left, right, middle
@@ -29,11 +31,11 @@ public enum MRMessage: Codable, Equatable {
     // MARK: Codable
 
     private enum Tag: String, Codable {
-        case mv, down, up, click, scroll, key, combo, text, media, np
+        case mv, down, up, click, scroll, key, combo, text, media, np, src, srcs
     }
 
     private enum Keys: String, CodingKey {
-        case t, dx, dy, b, count, key, mods, down, s, title, artist, duration, elapsed, playing
+        case t, dx, dy, b, count, key, mods, down, s, title, artist, duration, elapsed, playing, player, list
     }
 
     public init(from decoder: Decoder) throws {
@@ -74,6 +76,10 @@ public enum MRMessage: Codable, Equatable {
                 elapsed:  try c.decodeIfPresent(Double.self, forKey: .elapsed)  ?? 0,
                 playing:  try c.decodeIfPresent(Bool.self,   forKey: .playing)  ?? false
             )
+        case .src:
+            self = .selectSource(player: try c.decode(String.self, forKey: .player))
+        case .srcs:
+            self = .availableSources(try c.decodeIfPresent([String].self, forKey: .list) ?? [])
         }
     }
 
@@ -112,6 +118,12 @@ public enum MRMessage: Codable, Equatable {
             try c.encode(title, forKey: .title); try c.encode(artist, forKey: .artist)
             try c.encode(duration, forKey: .duration); try c.encode(elapsed, forKey: .elapsed)
             try c.encode(playing, forKey: .playing)
+        case .selectSource(let p):
+            try c.encode(Tag.src, forKey: .t)
+            try c.encode(p, forKey: .player)
+        case .availableSources(let list):
+            try c.encode(Tag.srcs, forKey: .t)
+            try c.encode(list, forKey: .list)
         }
     }
 }

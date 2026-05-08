@@ -12,8 +12,7 @@ struct ContentView: View {
             TrackpadView()
                 .padding(.horizontal, 8)
 
-            SwipeableControls()
-            BottomBar(keyboardActive: $keyboardActive)
+            SwipeableControls(keyboardActive: $keyboardActive)
                 .padding(.bottom, 4)
         }
         .background(Color.black.ignoresSafeArea())
@@ -110,21 +109,24 @@ private struct MediaPanel: View {
                 .foregroundColor(.gray)
             }
 
-            // Controls
-            HStack(spacing: 6) {
-                mediaBtn("rewind10",    icon: "gobackward.10")
-                mediaBtn("prev",        icon: "backward.end.fill")
-                mediaBtn("play",        icon: "playpause.fill",   large: true)
-                mediaBtn("next",        icon: "forward.end.fill")
-                mediaBtn("forward15",   icon: "goforward.15")
-                Spacer().frame(width: 4)
-                mediaBtn("voldown",     icon: "speaker.minus.fill")
-                mediaBtn("mute",        icon: "speaker.slash.fill")
-                mediaBtn("volup",       icon: "speaker.plus.fill")
+            // Transport controls
+            HStack(spacing: 10) {
+                mediaBtn("rewind10",  icon: "gobackward.10")
+                mediaBtn("prev",      icon: "backward.end.fill")
+                mediaBtn("play",      icon: "playpause.fill", large: true)
+                mediaBtn("next",      icon: "forward.end.fill")
+                mediaBtn("forward15", icon: "goforward.15")
+            }
+
+            // Volume controls
+            HStack(spacing: 10) {
+                mediaBtn("voldown", icon: "speaker.minus.fill")
+                mediaBtn("mute",    icon: "speaker.slash.fill")
+                mediaBtn("volup",   icon: "speaker.plus.fill")
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
         .background(Color(white: 0.07))
         .cornerRadius(10)
         .padding(.horizontal, 8)
@@ -136,12 +138,12 @@ private struct MediaPanel: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         } label: {
             Image(systemName: icon)
-                .font(.system(size: large ? 18 : 14))
+                .font(.system(size: large ? 22 : 16))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(Color(white: 0.13))
-                .cornerRadius(8)
+                .padding(.vertical, 12)
+                .background(Color(white: 0.14))
+                .cornerRadius(10)
         }
     }
 
@@ -154,6 +156,7 @@ private struct MediaPanel: View {
 // MARK: - Swipeable mod + specials
 
 private struct SwipeableControls: View {
+    @Binding var keyboardActive: Bool
     @State private var page = 0
 
     var body: some View {
@@ -162,6 +165,7 @@ private struct SwipeableControls: View {
                 VStack(spacing: 6) {
                     ModRow()
                     SpecialsRow()
+                    BottomBar(keyboardActive: $keyboardActive)
                 }
                 .tag(0)
 
@@ -169,7 +173,7 @@ private struct SwipeableControls: View {
                     .tag(1)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: page == 0 ? 96 : 130)
+            .frame(height: page == 0 ? 148 : 180)
             .animation(.easeInOut(duration: 0.2), value: page)
 
             HStack(spacing: 6) {

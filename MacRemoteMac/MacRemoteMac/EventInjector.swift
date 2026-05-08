@@ -2,6 +2,7 @@ import Foundation
 import CoreGraphics
 import ApplicationServices
 import AppKit
+import AudioToolbox
 
 /// Posts CGEvents in response to messages from the iPhone client.
 /// Mirrors the Python server's logic line-for-line.
@@ -31,6 +32,10 @@ final class EventInjector {
         case .media(let k):
             postMediaKey(k)
         case .nowPlaying:
+            break
+        case .selectSource:
+            break
+        case .availableSources:
             break
         }
     }
@@ -140,19 +145,55 @@ final class EventInjector {
     }
 
     private func postMediaKey(_ key: String) {
-        // NX_KEYTYPE codes for media keys
-        let keyCodes: [String: Int32] = [
-            "play": 16, "next": 17, "prev": 18,
-            "volup": 0, "voldown": 1, "mute": 7
-        ]
-        guard let code = keyCodes[key] else { return }
-        let flags = NSEvent.ModifierFlags(rawValue: 0xa00)
-        for (data1, eventType) in [(Int((code << 16) | (0xa << 8)), NSEvent.EventType.systemDefined),
-                                    (Int((code << 16) | (0xb << 8) | 1), NSEvent.EventType.systemDefined)] {
-            NSEvent.otherEvent(with: eventType, location: .zero, modifierFlags: flags,
-                               timestamp: 0, windowNumber: 0, context: nil,
-                               subtype: 8, data1: data1, data2: -1)?.cgEvent?.post(tap: .cghidEventTap)
+        switch key {
+        case "volup":   adjustVolume(0.06)
+        case "voldown": adjustVolume(-0.06)
+        case "mute":    toggleMute()
+        default:
+            let keyCodes: [String: Int32] = ["play": 16, "next": 17, "prev": 18]
+            guard let code = keyCodes[key] else { return }
+            let flags = NSEvent.ModifierFlags(rawValue: 0xa00)
+            for data1 in [(code << 16) | (0xa << 8), (code << 16) | (0xb << 8) | 1] {
+                NSEvent.otherEvent(with: .systemDefined, location: .zero, modifierFlags: flags,
+                                   timestamp: 0, windowNumber: 0, context: nil,
+                                   subtype: 8, data1: Int(data1), data2: -1)?.cgEvent?.post(tap: .cghidEventTap)
+            }
         }
+    }
+
+    private func defaultOutputDevice() -> AudioDeviceID? {
+        var dev = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var addr = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+                                             mScope: kAudioObjectPropertyScopeGlobal,
+                                             mElement: kAudioObjectPropertyElementMain)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),
+                                         &addr, 0, nil, &size, &dev) == noErr else { return nil }
+        return dev
+    }
+
+    private func adjustVolume(_ delta: Float) {
+        guard let dev = defaultOutputDevice() else { return }
+        var addr = AudioObjectPropertyAddress(mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+                                             mScope: kAudioDevicePropertyScopeOutput,
+                                             mElement: kAudioObjectPropertyElementMain)
+        var vol: Float32 = 0
+        var size = UInt32(MemoryLayout<Float32>.size)
+        guard AudioObjectGetPropertyData(dev, &addr, 0, nil, &size, &vol) == noErr else { return }
+        vol = max(0, min(1, vol + delta))
+        AudioObjectSetPropertyData(dev, &addr, 0, nil, size, &vol)
+    }
+
+    private func toggleMute() {
+        guard let dev = defaultOutputDevice() else { return }
+        var addr = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyMute,
+                                             mScope: kAudioDevicePropertyScopeOutput,
+                                             mElement: kAudioObjectPropertyElementMain)
+        var muted: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(dev, &addr, 0, nil, &size, &muted) == noErr else { return }
+        muted = muted == 0 ? 1 : 0
+        AudioObjectSetPropertyData(dev, &addr, 0, nil, size, &muted)
     }
 
     private func type(_ s: String) {
