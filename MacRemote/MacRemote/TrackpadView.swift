@@ -42,6 +42,9 @@ final class TrackpadUIView: UIView {
     private var cursorVelocity: CGPoint = .zero
     private var wasCursorMoving = false
 
+    // Post-scroll grace: ignore straggler finger after 2-finger scroll lifts
+    private var postScrollGrace = false
+
     // 3-finger gesture
     private var threeFingerDelta: CGPoint = .zero
     private var wasThreeFinger = false
@@ -159,6 +162,7 @@ final class TrackpadUIView: UIView {
                 state.scroll(dx: sdx, dy: sdy)
             }
         } else if activeCount == 1 {
+            if postScrollGrace { return }
             for t in touches {
                 let key = ObjectIdentifier(t)
                 guard var info = touchInfo[key] else { continue }
@@ -243,11 +247,13 @@ final class TrackpadUIView: UIView {
             return
         }
 
-        // Start scroll momentum when 2-finger scroll ends
-        if touchInfo.isEmpty && wasScrolling {
+        // Start scroll momentum when 2-finger scroll ends (even if one finger still lingers)
+        if wasScrolling && (touchInfo.isEmpty || touchInfo.count == 1) {
             wasScrolling = false
+            postScrollGrace = !touchInfo.isEmpty
             if state.settings.smoothScroll { startMomentum(mode: .scroll) } else { scrollVelocity = .zero }
         }
+        if touchInfo.isEmpty { postScrollGrace = false }
 
         // Start cursor momentum when 1-finger drag ends
         if touchInfo.isEmpty && wasCursorMoving && !dragHeld {
@@ -323,6 +329,7 @@ final class TrackpadUIView: UIView {
         wasScrolling = false
         wasCursorMoving = false
         wasThreeFinger = false
+        postScrollGrace = false
         threeFingerDelta = .zero
         smoothDx = 0
         smoothDy = 0
