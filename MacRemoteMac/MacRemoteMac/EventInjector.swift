@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics
 import ApplicationServices
+import AppKit
 
 /// Posts CGEvents in response to messages from the iPhone client.
 /// Mirrors the Python server's logic line-for-line.
@@ -27,6 +28,8 @@ final class EventInjector {
             postCombo(k, mods: mods)
         case .text(let s):
             type(s)
+        case .media(let k):
+            postMediaKey(k)
         }
     }
 
@@ -132,6 +135,22 @@ final class EventInjector {
         t.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
         t.arguments = ["-e", "tell application \"System Events\" to key code \(kc) using {\(modStr)}"]
         try? t.run()
+    }
+
+    private func postMediaKey(_ key: String) {
+        // NX_KEYTYPE codes for media keys
+        let keyCodes: [String: Int32] = [
+            "play": 16, "next": 17, "prev": 18,
+            "volup": 0, "voldown": 1, "mute": 7
+        ]
+        guard let code = keyCodes[key] else { return }
+        let flags = NSEvent.ModifierFlags(rawValue: 0xa00)
+        for (data1, eventType) in [(Int((code << 16) | (0xa << 8)), NSEvent.EventType.systemDefined),
+                                    (Int((code << 16) | (0xb << 8) | 1), NSEvent.EventType.systemDefined)] {
+            NSEvent.otherEvent(with: eventType, location: .zero, modifierFlags: flags,
+                               timestamp: 0, windowNumber: 0, context: nil,
+                               subtype: 8, data1: data1, data2: -1)?.cgEvent?.post(tap: .cghidEventTap)
+        }
     }
 
     private func type(_ s: String) {

@@ -98,4 +98,5 @@ final class AppState: ObservableObject {
         send(["t": "combo", "key": key, "mods": mods ?? consumeMods()])
     }
     func text(_ s: String) { send(["t": "text", "s": s]) }
+    func media(_ key: String) { send(["t": "media", "key": key]) }
 }

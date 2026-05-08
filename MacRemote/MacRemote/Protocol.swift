@@ -15,6 +15,7 @@ public enum MRMessage: Codable, Equatable {
     case key(key: String, mods: [Modifier], down: Bool)
     case combo(key: String, mods: [Modifier])
     case text(String)
+    case media(key: String)
 
     public enum MouseButton: String, Codable {
         case left, right, middle
@@ -27,7 +28,7 @@ public enum MRMessage: Codable, Equatable {
     // MARK: Codable
 
     private enum Tag: String, Codable {
-        case mv, down, up, click, scroll, key, combo, text
+        case mv, down, up, click, scroll, key, combo, text, media
     }
 
     private enum Keys: String, CodingKey {
@@ -62,6 +63,8 @@ public enum MRMessage: Codable, Equatable {
                           mods: try c.decodeIfPresent([Modifier].self, forKey: .mods) ?? [])
         case .text:
             self = .text(try c.decode(String.self, forKey: .s))
+        case .media:
+            self = .media(key: try c.decode(String.self, forKey: .key))
         }
     }
 
@@ -92,6 +95,9 @@ public enum MRMessage: Codable, Equatable {
         case .text(let s):
             try c.encode(Tag.text, forKey: .t)
             try c.encode(s, forKey: .s)
+        case .media(let k):
+            try c.encode(Tag.media, forKey: .t)
+            try c.encode(k, forKey: .key)
         }
     }
 }

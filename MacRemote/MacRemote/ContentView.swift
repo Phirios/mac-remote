@@ -12,6 +12,7 @@ struct ContentView: View {
             TrackpadView()
                 .padding(.horizontal, 8)
 
+            MediaRow()
             ModRow()
             SpecialsRow()
             BottomBar(keyboardActive: $keyboardActive)
@@ -64,6 +65,38 @@ struct ContentView: View {
         case .disconnected: return .red
         case .failed:       return .red
         }
+    }
+}
+
+private struct MediaRow: View {
+    @EnvironmentObject var state: AppState
+    private let keys: [(String, String)] = [
+        ("prev", "backward.end.fill"),
+        ("play", "playpause.fill"),
+        ("next", "forward.end.fill"),
+        ("voldown", "speaker.minus.fill"),
+        ("mute", "speaker.slash.fill"),
+        ("volup", "speaker.plus.fill"),
+    ]
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(keys, id: \.0) { (key, icon) in
+                Button {
+                    state.media(key)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    Image(systemName: icon)
+                        .font(.system(size: 14))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color(white: 0.1))
+                        .cornerRadius(8)
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(white: 0.18), lineWidth: 1))
+                        .foregroundColor(.white)
+                }
+            }
+        }
+        .padding(.horizontal, 8)
     }
 }
 
