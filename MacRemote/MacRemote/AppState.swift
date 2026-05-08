@@ -16,15 +16,25 @@ enum ConnectionStatus {
     case disconnected, connecting, connected, failed(String)
 }
 
+struct NowPlayingInfo {
+    var title: String = ""
+    var artist: String = ""
+    var duration: Double = 0
+    var elapsed: Double = 0
+    var playing: Bool = false
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published var settings: ConnectionSettings {
         didSet { persist(); reconnectIfNeeded() }
     }
     @Published var status: ConnectionStatus = .disconnected
-    @Published var heldMods: Set<String> = []   // sticky modifiers, cleared after one use
+    @Published var heldMods: Set<String> = []
+    @Published var nowPlaying: NowPlayingInfo = NowPlayingInfo()
 
     private var client: WebSocketClient?
+    private var elapsedTicker: Timer?
     private static let key = "mac-remote-settings-v1"
 
     init() {
@@ -51,6 +61,9 @@ final class AppState: ObservableObject {
         let url = URL(string: "ws://\(settings.host):\(settings.port)/\(settings.token)")!
         let c = WebSocketClient(url: url) { [weak self] s in
             Task { @MainActor in self?.status = s }
+        }
+        c.onMessage = { [weak self] text in
+            Task { @MainActor in self?.handleIncoming(text) }
         }
         client = c
         c.connect()
@@ -99,4 +112,23 @@ final class AppState: ObservableObject {
     }
     func text(_ s: String) { send(["t": "text", "s": s]) }
     func media(_ key: String) { send(["t": "media", "key": key]) }
+
+    private func handleIncoming(_ text: String) {
+        guard let msg = try? MRCodec.decode(text) else { return }
+        if case .nowPlaying(let title, let artist, let duration, let elapsed, let playing) = msg {
+            nowPlaying = NowPlayingInfo(title: title, artist: artist,
+                                        duration: duration, elapsed: elapsed, playing: playing)
+            elapsedTicker?.invalidate()
+            if playing && duration > 0 {
+                var current = elapsed
+                elapsedTicker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                    current += 1
+                    Task { @MainActor in
+                        guard let self, self.nowPlaying.playing else { return }
+                        self.nowPlaying.elapsed = min(current, self.nowPlaying.duration)
+                    }
+                }
+            }
+        }
+    }
 }

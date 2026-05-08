@@ -16,6 +16,7 @@ public enum MRMessage: Codable, Equatable {
     case combo(key: String, mods: [Modifier])
     case text(String)
     case media(key: String)
+    case nowPlaying(title: String, artist: String, duration: Double, elapsed: Double, playing: Bool)
 
     public enum MouseButton: String, Codable {
         case left, right, middle
@@ -28,11 +29,11 @@ public enum MRMessage: Codable, Equatable {
     // MARK: Codable
 
     private enum Tag: String, Codable {
-        case mv, down, up, click, scroll, key, combo, text, media
+        case mv, down, up, click, scroll, key, combo, text, media, np
     }
 
     private enum Keys: String, CodingKey {
-        case t, dx, dy, b, count, key, mods, down, s
+        case t, dx, dy, b, count, key, mods, down, s, title, artist, duration, elapsed, playing
     }
 
     public init(from decoder: Decoder) throws {
@@ -65,6 +66,14 @@ public enum MRMessage: Codable, Equatable {
             self = .text(try c.decode(String.self, forKey: .s))
         case .media:
             self = .media(key: try c.decode(String.self, forKey: .key))
+        case .np:
+            self = .nowPlaying(
+                title:    try c.decodeIfPresent(String.self, forKey: .title)    ?? "",
+                artist:   try c.decodeIfPresent(String.self, forKey: .artist)   ?? "",
+                duration: try c.decodeIfPresent(Double.self, forKey: .duration) ?? 0,
+                elapsed:  try c.decodeIfPresent(Double.self, forKey: .elapsed)  ?? 0,
+                playing:  try c.decodeIfPresent(Bool.self,   forKey: .playing)  ?? false
+            )
         }
     }
 
@@ -98,6 +107,11 @@ public enum MRMessage: Codable, Equatable {
         case .media(let k):
             try c.encode(Tag.media, forKey: .t)
             try c.encode(k, forKey: .key)
+        case .nowPlaying(let title, let artist, let duration, let elapsed, let playing):
+            try c.encode(Tag.np, forKey: .t)
+            try c.encode(title, forKey: .title); try c.encode(artist, forKey: .artist)
+            try c.encode(duration, forKey: .duration); try c.encode(elapsed, forKey: .elapsed)
+            try c.encode(playing, forKey: .playing)
         }
     }
 }

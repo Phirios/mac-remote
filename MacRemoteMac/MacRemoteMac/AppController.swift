@@ -13,9 +13,11 @@ final class AppController: ObservableObject {
 
     let settings: SettingsStore
     private let injector = EventInjector()
+    private let nowPlaying = NowPlayingMonitor()
     private var server: WSServer?
     private var cancellables = Set<AnyCancellable>()
     private var refreshTimer: Timer?
+    private var nowPlayingTimer: Timer?
 
     init(settings: SettingsStore) {
         self.settings = settings
@@ -44,8 +46,11 @@ final class AppController: ObservableObject {
         let s = WSServer(
             port: UInt16(settings.port),
             token: settings.token,
-            onMessage: { [weak self] msg in self?.injector.handle(msg) },
-            onConnectionChange: { [weak self] count in self?.connectionCount = count }
+            onMessage: { [weak self] msg in self?.handle(msg) },
+            onConnectionChange: { [weak self] count in
+                self?.connectionCount = count
+                if count > 0 { self?.startNowPlayingBroadcast() } else { self?.stopNowPlayingBroadcast() }
+            }
         )
         do {
             try s.start()
@@ -59,10 +64,43 @@ final class AppController: ObservableObject {
     }
 
     func stop() {
+        stopNowPlayingBroadcast()
         server?.stop()
         server = nil
         serverRunning = false
         connectionCount = 0
+    }
+
+    private func handle(_ msg: MRMessage) {
+        if case .media(let key) = msg {
+            if key == "rewind10"  { nowPlaying.seekByOffset(-10); return }
+            if key == "forward15" { nowPlaying.seekByOffset(15);  return }
+        }
+        injector.handle(msg)
+    }
+
+    private func startNowPlayingBroadcast() {
+        guard nowPlayingTimer == nil else { return }
+        nowPlayingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            self?.broadcastNowPlaying()
+        }
+        broadcastNowPlaying()
+    }
+
+    private func stopNowPlayingBroadcast() {
+        nowPlayingTimer?.invalidate()
+        nowPlayingTimer = nil
+    }
+
+    private func broadcastNowPlaying() {
+        nowPlaying.getInfo { [weak self] info in
+            guard let self, let info else { return }
+            let msg = MRMessage.nowPlaying(
+                title: info.title, artist: info.artist,
+                duration: info.duration, elapsed: info.elapsed, playing: info.playing
+            )
+            self.server?.broadcast(msg)
+        }
     }
 
     func restart() {

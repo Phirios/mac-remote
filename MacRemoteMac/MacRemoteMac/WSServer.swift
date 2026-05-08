@@ -45,6 +45,14 @@ final class WSServer {
         self.listener = listener
     }
 
+    func broadcast(_ msg: MRMessage) {
+        guard let text = try? MRCodec.encodeString(msg) else { return }
+        let frame = WSFrame.text(text)
+        queue.async { [weak self] in
+            self?.connections.forEach { $0.sendFrame(frame) }
+        }
+    }
+
     func stop() {
         listener?.cancel()
         listener = nil
@@ -215,6 +223,10 @@ final class WSConnection: Hashable {
     }
 
     // MARK: send
+
+    func sendFrame(_ frame: WSFrame) {
+        send(raw: frame.encode(), then: nil)
+    }
 
     private func send(frame: WSFrame) {
         send(raw: frame.encode(), then: nil)

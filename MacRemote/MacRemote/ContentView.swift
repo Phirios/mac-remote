@@ -12,16 +12,13 @@ struct ContentView: View {
             TrackpadView()
                 .padding(.horizontal, 8)
 
-            MediaRow()
-            ModRow()
-            SpecialsRow()
+            MediaPanel()
+            SwipeableControls()
             BottomBar(keyboardActive: $keyboardActive)
                 .padding(.bottom, 4)
         }
         .background(Color.black.ignoresSafeArea())
         .overlay(alignment: .topTrailing) {
-            // Hidden keyboard capture lives in the overlay so it can become
-            // first responder without disturbing the layout.
             KeyboardCapture(
                 isActive: $keyboardActive,
                 onText: { state.text($0) },
@@ -68,35 +65,115 @@ struct ContentView: View {
     }
 }
 
-private struct MediaRow: View {
+// MARK: - Media panel
+
+private struct MediaPanel: View {
     @EnvironmentObject var state: AppState
-    private let keys: [(String, String)] = [
-        ("prev", "backward.end.fill"),
-        ("play", "playpause.fill"),
-        ("next", "forward.end.fill"),
-        ("voldown", "speaker.minus.fill"),
-        ("mute", "speaker.slash.fill"),
-        ("volup", "speaker.plus.fill"),
-    ]
+
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(keys, id: \.0) { (key, icon) in
-                Button {
-                    state.media(key)
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                } label: {
-                    Image(systemName: icon)
-                        .font(.system(size: 14))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color(white: 0.1))
-                        .cornerRadius(8)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(white: 0.18), lineWidth: 1))
+        VStack(spacing: 6) {
+            // Track info
+            if !state.nowPlaying.title.isEmpty {
+                VStack(spacing: 2) {
+                    Text(state.nowPlaying.title)
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white)
+                        .lineLimit(1)
+                    Text(state.nowPlaying.artist)
+                        .font(.system(size: 11))
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                }
+            }
+
+            // Progress bar
+            if state.nowPlaying.duration > 0 {
+                VStack(spacing: 3) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color(white: 0.25))
+                                .frame(height: 4)
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color.white)
+                                .frame(width: geo.size.width * CGFloat(state.nowPlaying.elapsed / state.nowPlaying.duration), height: 4)
+                        }
+                    }
+                    .frame(height: 4)
+
+                    HStack {
+                        Text(formatTime(state.nowPlaying.elapsed))
+                        Spacer()
+                        Text(formatTime(state.nowPlaying.duration))
+                    }
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.gray)
+                }
+            }
+
+            // Controls
+            HStack(spacing: 6) {
+                mediaBtn("rewind10",    icon: "gobackward.10")
+                mediaBtn("prev",        icon: "backward.end.fill")
+                mediaBtn("play",        icon: "playpause.fill",   large: true)
+                mediaBtn("next",        icon: "forward.end.fill")
+                mediaBtn("forward15",   icon: "goforward.15")
+                Spacer().frame(width: 4)
+                mediaBtn("voldown",     icon: "speaker.minus.fill")
+                mediaBtn("mute",        icon: "speaker.slash.fill")
+                mediaBtn("volup",       icon: "speaker.plus.fill")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(white: 0.07))
+        .cornerRadius(10)
+        .padding(.horizontal, 8)
+    }
+
+    private func mediaBtn(_ key: String, icon: String, large: Bool = false) -> some View {
+        Button {
+            state.media(key)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: large ? 18 : 14))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Color(white: 0.13))
+                .cornerRadius(8)
+        }
+    }
+
+    private func formatTime(_ t: Double) -> String {
+        let s = Int(t)
+        return String(format: "%d:%02d", s / 60, s % 60)
+    }
+}
+
+// MARK: - Swipeable mod + specials
+
+private struct SwipeableControls: View {
+    @State private var page = 0
+
+    var body: some View {
+        VStack(spacing: 4) {
+            TabView(selection: $page) {
+                ModRow().tag(0)
+                SpecialsRow().tag(1)
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 44)
+
+            HStack(spacing: 6) {
+                ForEach(0..<2) { i in
+                    Circle()
+                        .fill(page == i ? Color.white : Color(white: 0.35))
+                        .frame(width: 5, height: 5)
                 }
             }
         }
-        .padding(.horizontal, 8)
     }
 }
 
@@ -115,7 +192,7 @@ private struct ModRow: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(state.heldMods.contains(key) ? Color.accentColor : Color(white: 0.1))
-                        .foregroundColor(state.heldMods.contains(key) ? .white : .white)
+                        .foregroundColor(.white)
                         .cornerRadius(8)
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(white: 0.18), lineWidth: 1))
                 }
@@ -132,26 +209,27 @@ private struct SpecialsRow: View {
         ("left","←"),("up","↑"),("down","↓"),("right","→"),
     ]
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(keys, id: \.0) { (key, label) in
-                    Button {
-                        state.combo(key)
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    } label: {
-                        Text(label).font(.system(size: 13))
-                            .padding(.vertical, 10).padding(.horizontal, 12)
-                            .background(Color(white: 0.1))
-                            .cornerRadius(8)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(white: 0.18), lineWidth: 1))
-                            .foregroundColor(.white)
-                    }
+        HStack(spacing: 6) {
+            ForEach(keys, id: \.0) { (key, label) in
+                Button {
+                    state.combo(key)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    Text(label).font(.system(size: 13))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color(white: 0.1))
+                        .cornerRadius(8)
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(white: 0.18), lineWidth: 1))
+                        .foregroundColor(.white)
                 }
             }
-            .padding(.horizontal, 8)
         }
+        .padding(.horizontal, 8)
     }
 }
+
+// MARK: - Bottom bar
 
 private struct BottomBar: View {
     @EnvironmentObject var state: AppState

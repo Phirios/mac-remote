@@ -4,6 +4,7 @@ import Foundation
 final class WebSocketClient: NSObject, URLSessionWebSocketDelegate {
     private let url: URL
     private let onStatus: (ConnectionStatus) -> Void
+    var onMessage: ((String) -> Void)?
     private var session: URLSession!
     private var task: URLSessionWebSocketTask?
     private var pendingSend: [String] = []
@@ -51,7 +52,8 @@ final class WebSocketClient: NSObject, URLSessionWebSocketDelegate {
         task?.receive { [weak self] result in
             guard let self else { return }
             switch result {
-            case .success:
+            case .success(let message):
+                if case .string(let text) = message { self.onMessage?(text) }
                 self.receiveLoop()
             case .failure:
                 self.scheduleReconnect()

@@ -30,6 +30,8 @@ final class EventInjector {
             type(s)
         case .media(let k):
             postMediaKey(k)
+        case .nowPlaying:
+            break
         }
     }
 
