@@ -12,7 +12,6 @@ struct ContentView: View {
             TrackpadView()
                 .padding(.horizontal, 8)
 
-            MediaPanel()
             SwipeableControls()
             BottomBar(keyboardActive: $keyboardActive)
                 .padding(.bottom, 4)
@@ -73,12 +72,12 @@ private struct MediaPanel: View {
     var body: some View {
         VStack(spacing: 6) {
             // Track info
-            if !state.nowPlaying.title.isEmpty {
-                VStack(spacing: 2) {
-                    Text(state.nowPlaying.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
+            VStack(spacing: 2) {
+                Text(state.nowPlaying.title.isEmpty ? "Nothing playing" : state.nowPlaying.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(state.nowPlaying.title.isEmpty ? .gray : .white)
+                    .lineLimit(1)
+                if !state.nowPlaying.artist.isEmpty {
                     Text(state.nowPlaying.artist)
                         .font(.system(size: 11))
                         .foregroundColor(.gray)
@@ -87,28 +86,28 @@ private struct MediaPanel: View {
             }
 
             // Progress bar
-            if state.nowPlaying.duration > 0 {
-                VStack(spacing: 3) {
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(Color(white: 0.25))
-                                .frame(height: 4)
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.white)
-                                .frame(width: geo.size.width * CGFloat(state.nowPlaying.elapsed / state.nowPlaying.duration), height: 4)
-                        }
+            VStack(spacing: 3) {
+                let progress = state.nowPlaying.duration > 0
+                    ? state.nowPlaying.elapsed / state.nowPlaying.duration : 0
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color(white: 0.25))
+                            .frame(height: 4)
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.white)
+                            .frame(width: geo.size.width * CGFloat(progress), height: 4)
                     }
-                    .frame(height: 4)
-
-                    HStack {
-                        Text(formatTime(state.nowPlaying.elapsed))
-                        Spacer()
-                        Text(formatTime(state.nowPlaying.duration))
-                    }
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.gray)
                 }
+                .frame(height: 4)
+
+                HStack {
+                    Text(formatTime(state.nowPlaying.elapsed))
+                    Spacer()
+                    Text(formatTime(state.nowPlaying.duration))
+                }
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(.gray)
             }
 
             // Controls
@@ -160,11 +159,18 @@ private struct SwipeableControls: View {
     var body: some View {
         VStack(spacing: 4) {
             TabView(selection: $page) {
-                ModRow().tag(0)
-                SpecialsRow().tag(1)
+                VStack(spacing: 6) {
+                    ModRow()
+                    SpecialsRow()
+                }
+                .tag(0)
+
+                MediaPanel()
+                    .tag(1)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 44)
+            .frame(height: page == 0 ? 96 : 130)
+            .animation(.easeInOut(duration: 0.2), value: page)
 
             HStack(spacing: 6) {
                 ForEach(0..<2) { i in
