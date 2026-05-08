@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import ServiceManagement
 
 /// Persisted server settings: port + auth token. Token is generated on
 /// first launch and cached. "Regenerate" replaces it (forces clients to
@@ -8,7 +9,16 @@ import Combine
 final class SettingsStore: ObservableObject {
     @Published var port: Int { didSet { defaults.set(port, forKey: Keys.port) } }
     @Published var token: String { didSet { defaults.set(token, forKey: Keys.token) } }
-    @Published var startAtLogin: Bool { didSet { defaults.set(startAtLogin, forKey: Keys.startAtLogin) } }
+    @Published var startAtLogin: Bool {
+        didSet {
+            defaults.set(startAtLogin, forKey: Keys.startAtLogin)
+            if startAtLogin {
+                try? SMAppService.mainApp.register()
+            } else {
+                try? SMAppService.mainApp.unregister()
+            }
+        }
+    }
 
     private let defaults = UserDefaults.standard
 

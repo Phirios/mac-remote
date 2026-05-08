@@ -156,6 +156,13 @@ struct MenuBarView: View {
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
+
+            Divider()
+            Toggle(isOn: Binding(get: { ctrl.settings.startAtLogin }, set: { ctrl.settings.startAtLogin = $0 })) {
+                Text("Launch at Login").font(.system(size: 11))
+            }
+            .toggleStyle(.checkbox)
+            .padding(.horizontal, 12).padding(.vertical, 8)
         }
     }
 }
